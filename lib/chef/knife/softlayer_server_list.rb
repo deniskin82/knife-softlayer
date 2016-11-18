@@ -19,11 +19,28 @@ class Chef
       # @return [nil]
       def run
 
-        $stdout.sync = false
+        $stdout.sync = true
         fmt = "%-8s %-30s %-8s %-15s %-15s %-10s"
         puts ui.color(sprintf(fmt, "ID", "FQDN", "Location", "Public IP", "Private IP", "Status"), :green)
         connection.servers.each do |server|
-          puts sprintf fmt, server.id, server.fqdn , server.datacenter, server.public_ip_address, server.private_ip_address, server.state if config[:datacenter].nil? || config[:datacenter] == server.datacenter
+          if config[:datacenter].nil? || config[:datacenter] == server.datacenter
+            state = begin
+              server.state
+            rescue Excon::Error::InternalServerError => e
+              'Unknown'
+            end
+
+            curr_state = case state
+                           when 'Running', 'on'
+                             ui.color(state, :green)
+                           when 'Halted'
+                             ui.color(state, :yellow)
+                           when 'Unknown'
+                             ui.color(state, :red)
+                         end
+
+            puts sprintf fmt, server.id, server.fqdn , server.datacenter, server.public_ip_address, server.private_ip_address, curr_state
+          end
         end
       end
     end
